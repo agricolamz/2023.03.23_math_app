@@ -26,9 +26,23 @@ editor_options:
 
 ```{r, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, dev='cairo_pdf')
+# setwd("/home/agricolamz/work/materials/2023.03.23_math_app")
 library(tidyverse)
-library(tidytext)
+library(brms)
 theme_set(theme_minimal()+theme(legend.position = "bottom", text = element_text(size = 20)))
+
+# load data
+readxl::read_xlsx("data/participle_result.xlsx") %>% 
+  filter(!str_detect(tier_name, "other")) %>% 
+  mutate(standard = str_remove(standard, "\\s?\\(\\?\\)"),
+         standard = str_replace(standard, "non-standard", "dialect"),
+         standard = str_replace(standard, "dial$", "dialect"),
+         corpus_type = str_extract(corpus, "l2"),
+         corpus_type = ifelse(is.na(corpus_type), "диалектный", "билингвальный")) %>% 
+  rename(speaker = tier_name,
+         form = standard) %>% 
+  select(corpus, corpus_type, speaker, education_level_value, form, time_start, time_end) ->
+  df
 ```
 
 #  Лингвистика: мифы и реальность
@@ -102,7 +116,6 @@ theme_set(theme_minimal()+theme(legend.position = "bottom", text = element_text(
 ## *Отложить в ... ящик*
 
 ```{r}
-library(tidyverse)
 library(ngramr)
 iz <- ngram(phrases = c("в долгий ящик", "в дальний ящик"), 
             corpus = "ru-2019",
@@ -140,10 +153,140 @@ knitr::include_graphics("images/04_corpus.png")
     
 *Пока делаешь, придёшь --- он уже вставши.* (Макеево, 1953, f)
 
-## Данные
+- С. С. Земичева изначально выделила три типа форм:
+    - стандартные: *вышедший*, *сделанный*, *сделав*
+    - диалектные: *вышедши*, *забывши*
+    - промежуточные: *выпивши*, *доёный*
+
+## Данные: `r nrow(df)` наблюдений
+
+- `r df %>% count(corpus) %>% nrow()` корпусов, `r df %>% count(speaker) %>% nrow()` носителей 
+
+```{r}
+library(inspectdf)
+df %>% 
+  inspect_cat() %>% 
+  mutate(col_name = factor(col_name, levels = c("speaker",
+                                                "corpus", 
+                                                "corpus_type", 
+                                                "education_level_value", 
+                                                "form"))) %>% 
+  show_plot()+
+  labs(title = "")
+```
+
+## Данные: георграфическое распределение
+
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/05_map.png")
+```
+
+## Есть ли зависимость между образованием и формой?
+
+Предсказания байесовской логистической регрессии со смешанным эффектами (80% доверительный интервал):
+
+```
+form ~ education + (1|corpus/speaker)
+```
+
+```{r fit_form_by_education, cache=TRUE, include=FALSE}
+df %>% 
+  filter(str_detect(corpus, "dialect_"),
+         !is.na(education_level_value)) %>%
+  mutate(form = ifelse(form == "standard", 0, 1)) %>% 
+  brm(form~education_level_value+(1|corpus/speaker), family = bernoulli(), data = ., cores = 15) ->
+  fit_dial
+```
+
+```{r, fig.height=6}
+conditional_effects(fit_dial,
+                    prob = 0.8,
+                    effects = c("education_level_value"))
+```
+
+## А как эти формы расположены во времени?
+
+Использование *вот* в донском корпусе:
+
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/06_don_vot.png")
+```
+
+## А как эти формы расположены во времени?
+
+Использование причастий/деепричастий в корпусе Лужникова (разметка С. С. Земичевой):
+
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/07_luzhnikova_part.png")
+```
+
+## А как эти формы расположены во времени?
+
+Может быть можно попробовать смоделировать вероятность перехода от диалектной формы в недиалектную и наоборот?
+
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/07_luzhnikova_part.png")
+```
 
 
+# Марковский процесс
+
+## Марковский процесс
+
+Марковская цепь --- это одна из популярных семей стохастических процессов, которая описывает переход из разных состояний. Их часто представляют в виде графа и матрицы переходов:
+
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/08_mc.png")
+```
+
+- значения в строчках должны суммироваться до 1
+
+## Марковский процесс на примере одного носителя
+
+Возьмем носителя `sir1941` и проанализируем ее 139 форм:
+
+```{r}
+library(markovchain)
+df %>% 
+  filter(speaker == "sir1941")  %>% 
+  pull(form) %>% 
+  markovchainFit() ->
+  mcfit_sir1941
+
+mcfit_sir1941$estimate
+```
+
+## Для каждого носителя из корпуса Лужниково
+
+```{r}
+df %>% 
+  filter(corpus == "dialect_luzhnikovo") %>% 
+  mutate(education_level_value = ifelse(is.na(education_level_value), "", education_level_value),
+         speaker = str_c(speaker, "\n", education_level_value)) ->
+  luzhnikovo
+
+map_dfr(unique(luzhnikovo$speaker), function(i){
+  luzhnikovo %>% 
+    filter(speaker == i) %>% 
+    pull(form) ->
+    for_mc
+  markovchain::markovchainFit(data = for_mc)$estimate@transitionMatrix %>% 
+    as_tibble(rownames = "to") %>%
+    pivot_longer(names_to = "from", values_to = "pr", -to) %>% 
+    mutate(person = i)
+}) ->
+  result
+
+result %>% 
+  ggplot(aes(from, to))+
+  geom_tile(aes(fill = pr), colour = "white") +
+  geom_text(aes(label = str_c(round(pr*100), "%")), colour = "white") +
+  scale_fill_gradient(low = "lightblue", high = "navy")+
+  facet_wrap(~person)+
+  theme(legend.position = "right")
+```
 
 ## {}
+
 
 \LARGE Спасибо за внимание!
