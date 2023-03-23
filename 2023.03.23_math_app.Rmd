@@ -33,6 +33,7 @@ theme_set(theme_minimal()+theme(legend.position = "bottom", text = element_text(
 
 # load data
 readxl::read_xlsx("data/participle_result.xlsx") %>% 
+  distinct() %>% 
   filter(!str_detect(tier_name, "other")) %>% 
   mutate(standard = str_remove(standard, "\\s?\\(\\?\\)"),
          standard = str_replace(standard, "non-standard", "dialect"),
@@ -41,7 +42,7 @@ readxl::read_xlsx("data/participle_result.xlsx") %>%
          corpus_type = ifelse(is.na(corpus_type), "диалектный", "билингвальный")) %>% 
   rename(speaker = tier_name,
          form = standard) %>% 
-  select(corpus, corpus_type, speaker, education_level_value, form, time_start, time_end) ->
+  select(corpus, corpus_type, speaker, education_level_value, form, time_start, time_end, source) ->
   df
 ```
 
@@ -103,7 +104,7 @@ readxl::read_xlsx("data/participle_result.xlsx") %>%
 
 ## Корпусная лингвистика
 
-Корпусная лингвистика --- это область лингвистики, которая занимается исследованием языковых явлений на материале некоторых собраний языкового материала. В большинтсве случаев это письменные тексты, однако это может быть аудио и даже видео корпус.
+Корпусная лингвистика --- это область лингвистики, которая занимается исследованием языковых явлений на материале некоторых собраний языкового материала. В большинтсве случаев это письменные тексты, однако это может быть аудио и даже видео корпуса.
 
 Среди корпусов русского языка можно назвать:
 
@@ -144,7 +145,7 @@ knitr::include_graphics("images/04_corpus.png")
 
 # Использование причастий и деепричастий в устной речи
 
-## Цель работы
+## Идея исследования
 
 - работа по извелечению примеров и разметке примеров была сделана нашим постдоком Светланой Сергеевной Земичевой
 - исследовать использование причастий и деепричастий в устной речи на материале диалектных и билингвальных корпусов
@@ -165,6 +166,7 @@ knitr::include_graphics("images/04_corpus.png")
 ```{r}
 library(inspectdf)
 df %>% 
+  select(-source) %>% 
   inspect_cat() %>% 
   mutate(col_name = factor(col_name, levels = c("speaker",
                                                 "corpus", 
@@ -175,7 +177,7 @@ df %>%
   labs(title = "")
 ```
 
-## Данные: георграфическое распределение
+## Данные: географическое распределение
 
 ```{r, out.width="100%", fig.align='center'}
 knitr::include_graphics("images/05_map.png")
@@ -228,6 +230,25 @@ knitr::include_graphics("images/07_luzhnikova_part.png")
 knitr::include_graphics("images/07_luzhnikova_part.png")
 ```
 
+## Прайминг
+
+Праймингом в лингвистике называют эффект, когда говорящие повторяют форму/вариант, которую была использована перед анализируемым речевым актом. Очень походит на эффект якоря или эффект привязки.  
+
+## Прайминг?
+
+Посмотрите на `lvk1952`:
+
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/07_luzhnikova_part.png")
+```
+
+## Прайминг
+
+`lvk1952`: Это полоса от пожарных, это у нас тут тоже **пропахано**, это от пожаров. 
+
+`Interviewer`: А почему такой полосы не **пропахано** в Ситниково или вот в Лужниково? 
+
+`lvk1952`: Не **пропахано**? В Лужникове есть, вот от нас идешь - у складу удобрения **пропахано**.  Да, ну а там тогда не знаю.  Не, там с Ситникова идешь, вот как с Ситникова значит, на правой стороне-то, эво тут з мосту перейдешь, поднимешься, там тоже **пропахано**! Это от пожаров, это каждый год пропахивают у нас.  Тут всё **пропахано**, там за деревней **пропахано**, там **пропахано**, Хорёво там, это всё **опахано**  Да, это... чё, трава-то, загорится, ее же, вон у нас вот трава когда загорелась - один, два, три, четыре дома. Сразу сгорели. 
 
 # Марковский процесс
 
@@ -260,7 +281,7 @@ mcfit_sir1941$estimate
 
 ```{r}
 df %>% 
-  filter(corpus == "dialect_luzhnikovo") %>% 
+  filter(corpus == "dialect_opochka") %>% 
   mutate(education_level_value = ifelse(is.na(education_level_value), "", education_level_value),
          speaker = str_c(speaker, "\n", education_level_value)) ->
   luzhnikovo
@@ -271,14 +292,15 @@ map_dfr(unique(luzhnikovo$speaker), function(i){
     pull(form) ->
     for_mc
   markovchain::markovchainFit(data = for_mc)$estimate@transitionMatrix %>% 
-    as_tibble(rownames = "to") %>%
-    pivot_longer(names_to = "from", values_to = "pr", -to) %>% 
+    as_tibble(rownames = "from") %>%
+    pivot_longer(names_to = "to", values_to = "pr", -from) %>% 
     mutate(person = i)
 }) ->
   result
 
 result %>% 
-  ggplot(aes(from, to))+
+  filter(!str_detect(person, "na1960")) %>% 
+  ggplot(aes(to, from))+
   geom_tile(aes(fill = pr), colour = "white") +
   geom_text(aes(label = str_c(round(pr*100), "%")), colour = "white") +
   scale_fill_gradient(low = "lightblue", high = "navy")+
@@ -286,7 +308,44 @@ result %>%
   theme(legend.position = "right")
 ```
 
-## {}
+## Обобщение по всем корпусам?
 
+- Хотелось бы чтобы можно было делать иерархические марковские цепи, аналогичные нашей регрессии (носитель, вложен в корпус). 
+- Кроме того, хотелось бы делать поправку на количество единиц для анализа.
+>- Вроде это должно покрываться иерархическими марковскими моделями, но я не нашел их реализацию, которую бы мне подходила, так что я заменил все регрессией 
+
+## Обобщение по всем корпусам?
+
+Предсказания байесовской логистической регрессии со смешанным эффектами (80% доверительный интервал):
+
+```
+form ~ education + previous form + (1|corpus/speaker)
+```
+
+```{r fit_dial_lag, cache=TRUE, include=FALSE}
+df %>% 
+  filter(str_detect(corpus, "dialect_"),
+         !is.na(education_level_value)) %>%
+  arrange(corpus, speaker, source, time_start) %>% 
+  mutate(lag_form = lag(form)) %>% 
+  mutate(form = ifelse(form == "standard", 0, 1)) %>%
+  brm(form~lag_form+education_level_value+(1|corpus/speaker), family = bernoulli(), data = ., cores = 15) ->
+  fit_dial_lag
+```
+
+```{r, fig.height=6}
+conditional_effects(fit_dial_lag,
+                    prob = 0.8,
+                    effects = c("education_level_value:lag_form"))
+```
+
+## Выводы
+
+- Причастия и деепричастия встречаются в устной речи чаще, чем мы думаем
+- Вариативность всюду
+- Их можно пытатсья моделировать стохастическими моделями разной сложности
+- Носители диалектных форм очень разнородны, может быть и не надо пытаться строить какую-то обобщающую модель?
+
+## {}
 
 \LARGE Спасибо за внимание!
