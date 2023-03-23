@@ -1,13 +1,13 @@
 ---
 title: "Использование марковских цепей при анализе вариативности в русских диалектных корпусах"
 author: |
-    | Георгий Алексеевич Мороз
+    | Георгий Алексеевич Мороз, Светлана Сергеевна Земичева
     | 
     | \small  Международная лаборатория языковой конвергенции (НИУ ВШЭ)
     |
     | «Основные приложения математики», НИУ ВШЭ
     |
-    | презентация доступна по ссылке: tinyurl.com/yapvnfm8
+    | презентация доступна по ссылке: tinyurl.com/2o2aha9q
 date: "23 марта 2023"
 output: 
   beamer_presentation:
@@ -31,173 +31,118 @@ library(tidytext)
 theme_set(theme_minimal()+theme(legend.position = "bottom", text = element_text(size = 20)))
 ```
 
-# Введение
+#  Лингвистика: мифы и реальность
 
-## Наукометрия
+## \#тыжлингвист
 
->- Государство и университеты ставят своей целью финансировать науку, однако напрямую это сделать нельзя, так что приходится финансировать ученых. Так как результат деятельности ученых далеко не всегда очевиден, то приходится придумывать какие-то меры эффективности ученых.
+>- умеет читать на всех письменностях мира
+>- знает все языки на свете
+>- умеет распознавать каждый язык на слух 
+>- может рассказать о происхождении каждого слова
+>- пишет без ошибок и знает все правила орфографии
+>- не знает математики и программирования 
+>- \Large все вышеперечисленное, конечно, неправда
 
->- Оценивать принято через публикации, но тут обнаруживается, что какую бы меру не придумали, всегда находятся хакеры, которые ломают систему.
+## Лингвистика
 
->- Появляется направление под названием *наукометрия* (scientometrics), которое аккамулирует в себе анализ данных в области цитирований, журналов и науки (ср. с другими частными направлениями: биоинформатика, дата журналистика и др.)
+- прескриптивная \pause
+- вся остальная (дескриптивная)
+    - каталогизация языкового разнообразия, описание языковых контактов
+    - исследования грамматики языка
+    - исследования распределения грамматических особенностей в языках мира
+    - исследования когнитивных способностей человека и других животных, связанных с языком
+    - исследования в области синтеза и распознования речи и языка
+    - создание компьютерных инструментов для решения самых разных задач
+    - вспомогательные инструменты лингвистического исследования и документации
+    - корпусная лингвистика
+    - исследования в области NLP, языковых моделей и т. п. 
+    - симуляционные модели в лингвистике
 
-## Чем занимаются наукометры
+## Прескриптивная vs. дескриптивная лингвистика
 
-В основном они анализируют метаданные научных публикаций:
+Назовите, пожалуйста, что изображено на картинке.
 
-- авторов
-- название, аннотации, ключевые слова
-- список литературы (исходящие цитирование)
-- где процитирована данная работу (входящие цитирования)
-- где опубликовано (импакт фактор, квартили и другие характеристики журнала и т. п.)
+(рисунок Тани Пановой)
 
-В Вышке они еще и влияют на составление списка хороших и плохих журналов, за которые платят надбавки.
+![](images/01_ladle.jpg)
 
-По лингвистике они выдали список из 2662 журналов, которые категорезированы по группам `a` > `b` > `c` > `d`.
+## Прескриптивная vs. дескриптивная лингвистика
 
-Лингвистика входит в тег `ФИЛОЛОГИЯ, ЛИНГВИСТИКА И МЕДИАКОММУНИКАЦИИ`, так что в списке много мусора.
+Это часть опроса Ивана Левина:
 
-# Работа с журналами
+![](images/02_ladle_map.jpg)
 
-## Команда
+#  Обо мне
 
-- руководители
-    - Г. Мороз
-    - Б. Орехов
-- студенты
-    - А. Алексеева (б)
-    - Т. Дедов (б)
-    - А. Орехов (м)    
-    - К. Сидоров (м)
-    - А. Степанова (б)
+##  Обо мне
 
-## Что мы сделали
+* полевые исследования (29 поездок)
+* фонетист, фонолог, квантитативный лингвист
+* езжу на Кавказ
+* преподаю статистику и R (язык программирования)
+* написал несколько лингвистических пакетов для R
+    * [`lingtypology`](https://ropensci.github.io/lingtypology/)
+    * [`phonfieldwork`](https://docs.ropensci.org/phonfieldwork/)
+    * [`lingglosses`](https://github.com/agricolamz/lingglosses)
 
-Мы начали рабоаться со списками `a` и `b`:
+# Корпусная лингвистика
 
-- Таблица с журналами содержит поля 
-    - `title`: AAC: AUGMENTATIVE AND ALTERNATIVE COMMUNICATION
-    - `issn`: 0743-4618; 1477-3848
-    - `hse_level`: a
-    - `category`: биология, медицина и здравоохранение; филология, лингвистика и медиакоммуникации
-- Мы добавили поля:
-    - `only_PhLiMed`: 0
-    - `url`: https://www.tandfonline.com/loi/iaac20
-    - (ручная разметка) `linguistics`: not much
-    - (ручная разметка) `literary_studies`: not much
-    - (ручная разметка) `aims_scope`: ...
-    - `url_domain`: tandfonline.com
-    - служебные мета-данные: `finished`, `day`, `month`, `year`
+## Корпусная лингвистика
 
-## Разметка поля `linguistics`
+Корпусная лингвистика --- это область лингвистики, которая занимается исследованием языковых явлений на материале некоторых собраний языкового материала. В большинтсве случаев это письменные тексты, однако это может быть аудио и даже видео корпус.
 
-```{r}
-journals <- readxl::read_xlsx("/home/agricolamz/work/bureaucracy/linguistic_convergency/journals/repo/abcd_list_annotated.xlsx")
+Среди корпусов русского языка можно назвать:
 
-journals %>% 
-  filter(hse_level %in% c("a", "b")) %>% 
-  count(hse_level, linguistics) %>% 
-  ggplot(aes(n, reorder_within(linguistics, by = n, within = hse_level)))+
-  geom_col()+
-  geom_label(aes(label = n))+
-  facet_wrap(~hse_level, scales = "free")+
-  labs(y = "", x = "")+
-  scale_y_reordered()
-```
+- [Национальный корпус русского языка](https://ruscorpora.ru/)
+    - более 1.5 млрд слов
+    - много подкорпусов (газетный, устный, параллельный, диалектный, поэтический, исторические)
+- Google Books Ngram Viewer 
+- ...
 
-# Работа со статьями
-
-## Библиометрические базы
-
-- [Web of Science](https://sciguide.hse.ru/sources/wos/)
-- [Scopus](https://sciguide.hse.ru/sources/scopus/)
-- [eLIBRARY.ru (РИНЦ)](https://sciguide.hse.ru/sources/elibrary/)
-- [Google Scholar](https://sciguide.hse.ru/sources/elibrary/)
-- [`crossref`](https://www.crossref.org/), см. R пакет `rcrossref`
-- [`openalex`](https://openalex.org/), см. R пакет `openalexR`
-- [Semantic Scholar](https://www.semanticscholar.org/)
-- [The Lens](https://www.lens.org/)
-
-## crossref
-
-При помощи `rcrossref` мы извлекли для всех лингвистических журналов следующие поля:
-
-- `doi`: 10.1515/ang-2012-0005
-- `author`: Müller Patrick
-- `title`: “The impediment that cannot say its name”: Stammering and Trauma in Selected American and British Texts
-- `url`: http://dx.doi.org/10.1515/ang-2012-0005
-- `volume`: 130
-- `issue`: 1
-- `page`: -
-- `reference.count`: 0
-- `container.title`: Anglia - Zeitschrift für englische Philologie
-- `issn`: 1865-8938,0340-5222
-
-## Наконец-то краулер!
-
-Мы разделили издательства между ребятами и они написали краулеры, чтобы достать следующие поля:
-
-- `abstract`
-- `keyword`
-- `year`
-- `source`
-
-## Что уже сделано (32 журнала):
+## *Отложить в ... ящик*
 
 ```{r}
-journals <- list.files("/home/agricolamz/work/bureaucracy/linguistic_convergency/journals/repo/with_abstracts")
-journals <- journals[!(journals %in% "morphology")]
+library(tidyverse)
+library(ngramr)
+iz <- ngram(phrases = c("в долгий ящик", "в дальний ящик"), 
+            corpus = "ru-2019",
+            year_start = 1850)
 
-df <- map_dfr(journals, function(i){
-  read_csv(str_c("/home/agricolamz/work/bureaucracy/linguistic_convergency/journals/repo/with_abstracts/", i, "/", i, ".csv"),
-           show_col_types = FALSE, col_types = "c") %>% 
-    mutate(issue = as.character(issue),
-           volume = as.character(volume),
-           reference.count = as.character(reference.count),
-           year = as.character(year))
-})
-
-df %>% 
-  mutate(container.title = str_remove(container.title, "\n")) %>% 
-  filter(!is.na(container.title)) %>% 
-  count(container.title) %>% 
-  ggplot(aes(n, fct_reorder(container.title, n)))+
-  geom_col()+
-  geom_label(aes(label = n), size = 3)+
-  labs(x = "", y = "")+
-  theme(text = element_text(size = 15))
+iz %>% 
+  ggplot(aes(x = Year, y = Frequency, colour = Phrase))+
+  geom_line()+
+  theme_google()+
+  labs(caption = "на основе Google Books Ngram Viewer")
 ```
 
-## Покрытие по годам
+## Диалектные устные корпуса лаборатории языковой конвергенции
 
-```{r}
-library(ggridges)
-df %>% 
-  mutate(container.title = str_remove(container.title, "\n"),
-         year = as.double(year)) %>%  
-  filter(!is.na(container.title),
-         !is.na(year)) %>% 
-  add_count(container.title) %>% 
-  mutate(container.title = fct_reorder(container.title, n)) %>% 
-  ggplot(aes(year, container.title, fill = container.title))+
-  geom_density_ridges()+
-  labs(x = "", y = "")+
-  theme(text = element_text(size = 15), legend.position = "none")
+```{r, fig.align='center'}
+knitr::include_graphics("images/03_corpora.png")
 ```
 
-# Репозиторий
+## Диалектные устные корпуса лаборатории языковой конвергенции
 
-## Репозиторий
-
-https://github.com/linguistic-journals/journal_list_data
-
+```{r, out.width="100%", fig.align='center'}
+knitr::include_graphics("images/04_corpus.png")
 ```
-├── crossref                  # папка с экспортом из crossref
-├── with_abstracts            # папка со сделанными журналами
-├── scripts                   # папка со скриптами
-├── abcd_list_annotated.xlsx  # список журналов
-└── helsenki.csv              # ранкинг журналов из Хелсинской бд
-```
+
+<http://lingconlab.ru/resources.html>
+
+# Использование причастий и деепричастий в устной речи
+
+## Цель работы
+
+- работа по извелечению примеров и разметке примеров была сделана нашим постдоком Светланой Сергеевной Земичевой
+- исследовать использование причастий и деепричастий в устной речи на материале диалектных и билингвальных корпусов
+- исследовать соотношение литературных и диалектных форм (например, *евши*)
+    - диалектные формы на -*ши* могут иметь разные функции, иногда они ведут себя как финитные формы:
+    
+*Пока делаешь, придёшь --- он уже вставши.* (Макеево, 1953, f)
+
+## Данные
+
+
 
 ## {}
 
